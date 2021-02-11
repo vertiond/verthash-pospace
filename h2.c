@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <assert.h>
 
 #include "tiny_sha3/sha3.h"
 
@@ -22,38 +23,47 @@ static inline uint32_t fnv1a(const uint32_t a, const uint32_t b) {
     return (a ^ b) * 0x1000193;
 }
 
-void verthash_hash(const unsigned char* blob_bytes, const size_t blob_size, const unsigned char* input, unsigned char* output) {
+void verthash_hash(const unsigned char* input, unsigned char* output) {
     unsigned char p1[HASH_OUT_SIZE];
     sha3(&input[0], HEADER_SIZE, &p1[0], HASH_OUT_SIZE);
-
-    unsigned char p0[N_SUBSET];
 
     unsigned char input_header[HEADER_SIZE];
     memcpy(input_header, input, HEADER_SIZE);
 
+    unsigned char p0[N_SUBSET];
+
     for(size_t i = 0; i < N_ITER; i++) {
-    	input_header[0] += 1;
-    	sha3(&input_header[0], HEADER_SIZE, p0+i*P0_SIZE, P0_SIZE);
+      input_header[0] += 1;
+      sha3(&input_header[0], HEADER_SIZE, p0+i*P0_SIZE, P0_SIZE);
     }
 
     uint32_t* p0_index = (uint32_t*)p0;
     uint32_t seek_indexes[N_INDEXES];
 
     for(size_t x = 0; x < N_ROT; x++) {
-    	memcpy(seek_indexes+x*(N_SUBSET/sizeof(uint32_t)), p0, N_SUBSET);
-    	for(size_t y = 0; y < N_SUBSET/sizeof(uint32_t); y++) {
-	        *(p0_index + y) = (*(p0_index + y) << 1) | (1 & (*(p0_index + y) >> 31));
-	    }
+      memcpy(seek_indexes+x*(N_SUBSET/sizeof(uint32_t)), p0, N_SUBSET);
+      for(size_t y = 0; y < N_SUBSET/sizeof(uint32_t); y++) {
+          *(p0_index + y) = (*(p0_index + y) << 1) | (1 & (*(p0_index + y) >> 31));
+      }
     }
 
+    FILE* datfile = fopen(dat_file_name, "rb");
+    fseek(datfile, 0, SEEK_END);
+    const size_t datfile_sz = ftell(datfile);
+
+    fseek(datfile, 0, SEEK_SET);
+
     uint32_t* p1_32 = (uint32_t*)p1;
-    uint32_t* blob_bytes_32 = (uint32_t*)blob_bytes;
     uint32_t value_accumulator = 0x811c9dc5;
-    const uint32_t mdiv = ((blob_size - HASH_OUT_SIZE)/BYTE_ALIGNMENT) + 1;
+    const uint32_t mdiv = ((datfile_sz - HASH_OUT_SIZE)/BYTE_ALIGNMENT) + 1;
+
     for(size_t i = 0; i < N_INDEXES; i++) {
-        const uint32_t offset = (fnv1a(seek_indexes[i], value_accumulator) % mdiv) * BYTE_ALIGNMENT/sizeof(uint32_t); 
+        const long offset = (fnv1a(seek_indexes[i], value_accumulator) % mdiv) * BYTE_ALIGNMENT;
+        fseek(datfile, offset, SEEK_SET);
         for(size_t i2 = 0; i2 < HASH_OUT_SIZE/sizeof(uint32_t); i2++) {
-            const uint32_t value = *(blob_bytes_32 + offset + i2);
+            uint32_t value = 0;
+            size_t read_len = fread(&value, sizeof(uint32_t), 1, datfile);
+            assert(read_len == 1);
             uint32_t* p1_ptr = p1_32 + i2;
             *p1_ptr = fnv1a(*p1_ptr, value);
 
@@ -62,6 +72,8 @@ void verthash_hash(const unsigned char* blob_bytes, const size_t blob_size, cons
     }
 
     memcpy(output, p1, HASH_OUT_SIZE);
+
+    fclose(datfile);
 }
 
 int main() {
@@ -70,7 +82,7 @@ int main() {
     const size_t datfile_sz = ftell(datfile);
 
     fseek(datfile, 0, SEEK_SET);
-    
+
     printf("allocating buffer...\n");
 
     unsigned char* blob_bytes = malloc(datfile_sz);
@@ -126,7 +138,7 @@ int main() {
     uint32_t value_accumulator = 0x811c9dc5;
     const uint32_t mdiv = ((datfile_sz - HASH_OUT_SIZE)/BYTE_ALIGNMENT) + 1;
     for(size_t i = 0; i < N_INDEXES; i++) {
-        const uint32_t offset = (fnv1a(seek_indexes[i], value_accumulator) % mdiv) * BYTE_ALIGNMENT/sizeof(uint32_t); 
+        const uint32_t offset = (fnv1a(seek_indexes[i], value_accumulator) % mdiv) * BYTE_ALIGNMENT/sizeof(uint32_t);
         for(size_t i2 = 0; i2 < HASH_OUT_SIZE/sizeof(uint32_t); i2++) {
             const uint32_t value = *(blob_bytes_32 + offset + i2);
             uint32_t* p1_ptr = p1_32 + i2;
