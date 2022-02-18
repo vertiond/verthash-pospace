@@ -22,15 +22,15 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Build wheels
-        uses: joerick/cibuildwheel@v2.3.1
-        env:
-          CIBW_BUILD: cp39-* cp310-*
+#      - name: Build wheels
+#        uses: joerick/cibuildwheel@v2.3.1
+#        env:
+#          CIBW_BUILD: cp39-* cp310-*
 #          CIBW_TEST_COMMAND: "python {package}/test.py"
-
-      - uses: actions/upload-artifact@v2
-        with:
-          path: ./wheelhouse/*.whl
+#
+#      - uses: actions/upload-artifact@v2
+#        with:
+#          path: ./wheelhouse/*.whl
 
   build_sdist:
     name: Build source distribution

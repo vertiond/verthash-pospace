@@ -40,19 +40,19 @@ static PyMethodDef VerthashMethods[] = {
 #if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef VerthashModule = {
     PyModuleDef_HEAD_INIT,
-    "verthash",
+    "verthash_test",
     "...",
     -1,
     VerthashMethods
 };
 
-PyMODINIT_FUNC PyInit_verthash(void) {
+PyMODINIT_FUNC PyInit_verthash_test(void) {
     return PyModule_Create(&VerthashModule);
 }
 
 #else
 
-PyMODINIT_FUNC initverthash(void) {
-    (void) Py_InitModule("verthash", VerthashMethods);
+PyMODINIT_FUNC initverthash_test(void) {
+    (void) Py_InitModule("verthash_test", VerthashMethods);
 }
 #endif
